@@ -12,75 +12,165 @@
   </head>
   <body>
     <div class="wrap">
-      <p class="eyebrow">포폴 렌즈</p>
-      <h1>보유만 넣으면<br />비중과 국장·미장이 나옵니다</h1>
-      <p class="disclaimer">투자 조언이 아닙니다. 보유는 이 기기에만 남습니다. 시세는 직접 입력합니다.</p>
+      <header class="top">
+        <p class="eyebrow">포폴 렌즈</p>
+        <h1>내 포트폴리오를<br />한눈에 봅니다</h1>
+        <p class="disclaimer">투자 조언이 아닙니다. 입력한 데이터는 이 기기에만 남습니다.</p>
+      </header>
 
-      <section class="hero">
-        <div class="label">총 평가액</div>
-        <div class="amount" id="total">0원</div>
-      </section>
+      <nav class="tabs" role="tablist" aria-label="화면">
+        <button type="button" class="tab is-on" role="tab" id="tab-manage" aria-controls="panel-manage" aria-selected="true" data-tab="manage">
+          종목 관리
+        </button>
+        <button type="button" class="tab" role="tab" id="tab-analyze" aria-controls="panel-analyze" aria-selected="false" data-tab="analyze">
+          분석 보기
+        </button>
+      </nav>
 
-      <div class="split">
-        <section class="card">
-          <div class="label">국장</div>
-          <div class="pct" id="krPct">—</div>
-          <div class="sub" id="krSub"></div>
-        </section>
-        <section class="card">
-          <div class="label">미장</div>
-          <div class="pct" id="usPct">—</div>
-          <div class="sub" id="usSub"></div>
-        </section>
-      </div>
+      <section class="panel" id="panel-manage" role="tabpanel" aria-labelledby="tab-manage">
+        <div class="input-card">
+          <h2>환율과 현금</h2>
+          <div class="settings-grid cash-settings">
+            <label class="setting-field">
+              <span>달러 환율</span>
+              <input id="fx" inputmode="decimal" placeholder="1,400" autocomplete="off" />
+              <small>1달러당 원화</small>
+            </label>
+            <label class="setting-field">
+              <span>원화 현금</span>
+              <input id="cashKrw" inputmode="decimal" placeholder="0" autocomplete="off" />
+              <small>KRW</small>
+            </label>
+            <label class="setting-field">
+              <span>달러 현금</span>
+              <input id="cashUsd" inputmode="decimal" placeholder="0" autocomplete="off" />
+              <small>USD</small>
+            </label>
+          </div>
+        </div>
 
-      <section class="section">
-        <h2>종목 비중</h2>
-        <div class="list" id="weights"></div>
-      </section>
+        <div class="sheet-card">
+          <div class="card-heading">
+            <div>
+              <h2>보유 종목</h2>
+              <p>같은 티커는 분석에서 자동으로 합쳐집니다.</p>
+            </div>
+            <button class="small-btn" type="button" id="addRow">행 추가</button>
+          </div>
+          <p class="sheet-hint">미국 종목은 통화를 USD로 선택하고 가격을 달러로 입력하세요.</p>
+          <div class="sheet-scroll">
+            <table class="sheet" id="sheet">
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>티커</th>
+                  <th>수량</th>
+                  <th>통화</th>
+                  <th>현재가</th>
+                  <th>평단</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="sheetBody"></tbody>
+            </table>
+          </div>
+        </div>
 
-      <section class="section">
-        <h2>종목 추가</h2>
-        <form class="form" id="addForm">
-          <div class="fields">
-            <div class="field">
-              <label for="name">이름</label>
-              <input id="name" name="name" autocomplete="off" placeholder="삼성전자" required />
+        <details class="bulk">
+          <summary>JSON · 엑셀 붙여넣기</summary>
+          <p class="hint">엑셀은 이름 / 티커 / 수량 / 통화 / 현재가 / 평단 순서입니다. JSON은 전체 설정을 함께 백업합니다.</p>
+          <textarea id="bulk" rows="8" spellcheck="false" placeholder='이름	티커	수량	통화	현재가	평단
+삼성전자	005930	100	KRW	80000	70000
+엔비디아	NVDA	10	USD	180	150
+
+또는
+{"holdings":[{"name":"엔비디아","ticker":"NVDA","shares":10,"currency":"USD","price":180,"avgPrice":150}],"fx":1400,"cashKrw":0,"cashUsd":100}'></textarea>
+          <p class="err" id="bulkErr"></p>
+          <div class="bulk-actions">
+            <button class="btn" type="button" id="applyBulk">붙여넣기 적용</button>
+            <button class="btn secondary" type="button" id="copyJson">JSON 복사</button>
+          </div>
+        </details>
+
+        <details class="bulk benchmark-input">
+          <summary>YTD · YOY 비교 입력</summary>
+          <p class="hint">매수일 대신 기간 시작 평가액과 순입금만 사용합니다. 수익률은 (현재 평가액 − 시작 평가액 − 순입금) ÷ 시작 평가액입니다.</p>
+          <div class="history-grid">
+            <div class="history-block">
+              <h3>포트폴리오 기준금액</h3>
+              <label class="setting-field">
+                <span>전년도 말 평가액</span>
+                <input id="yearEndValue" data-performance="yearEndValue" inputmode="decimal" placeholder="YTD 시작금액" />
+              </label>
+              <label class="setting-field">
+                <span>올해 순입금</span>
+                <input id="ytdNetFlow" data-performance="ytdNetFlow" inputmode="decimal" placeholder="출금은 음수" />
+              </label>
+              <label class="setting-field">
+                <span>1년 전 평가액</span>
+                <input id="yearAgoValue" data-performance="yearAgoValue" inputmode="decimal" placeholder="YOY 시작금액" />
+              </label>
+              <label class="setting-field">
+                <span>최근 1년 순입금</span>
+                <input id="yoyNetFlow" data-performance="yoyNetFlow" inputmode="decimal" placeholder="출금은 음수" />
+              </label>
             </div>
-            <div class="field">
-              <label for="ticker">티커</label>
-              <input id="ticker" name="ticker" autocomplete="off" placeholder="005930" required />
-            </div>
-            <div class="field">
-              <label for="shares">수량</label>
-              <input id="shares" name="shares" inputmode="decimal" placeholder="10" required />
-            </div>
-            <div class="field">
-              <label for="price">현재가 (원)</label>
-              <input id="price" name="price" inputmode="decimal" placeholder="80000" required />
-            </div>
-            <div class="field wide">
-              <label for="avg">평단 (원, 선택)</label>
-              <input id="avg" name="avg" inputmode="decimal" placeholder="비워두면 손익 없음" />
+            <div class="history-block">
+              <h3>벤치마크 수익률 (%)</h3>
+              <div class="benchmark-grid">
+                <span></span><b>YTD</b><b>YOY</b>
+                <span>S&amp;P 500</span>
+                <input data-benchmark="ytd.sp500" inputmode="decimal" placeholder="0" />
+                <input data-benchmark="yoy.sp500" inputmode="decimal" placeholder="0" />
+                <span>나스닥</span>
+                <input data-benchmark="ytd.nasdaq" inputmode="decimal" placeholder="0" />
+                <input data-benchmark="yoy.nasdaq" inputmode="decimal" placeholder="0" />
+                <span>코스피</span>
+                <input data-benchmark="ytd.kospi" inputmode="decimal" placeholder="0" />
+                <input data-benchmark="yoy.kospi" inputmode="decimal" placeholder="0" />
+              </div>
             </div>
           </div>
-          <p class="err" id="addErr"></p>
-          <button class="btn" type="submit">추가</button>
-        </form>
+        </details>
       </section>
 
-      <section class="section">
-        <h2>현금</h2>
-        <form class="form" id="cashForm">
-          <div class="fields">
-            <div class="field wide">
-              <label for="cash">금액 (원)</label>
-              <input id="cash" name="cash" inputmode="decimal" placeholder="0" />
-            </div>
+      <section class="panel is-hidden" id="panel-analyze" role="tabpanel" aria-labelledby="tab-analyze" hidden>
+        <section class="hero">
+          <div class="label">총 평가액</div>
+          <div class="amount" id="total">0원</div>
+        </section>
+
+        <div class="split">
+          <section class="card">
+            <div class="label">국장</div>
+            <div class="pct" id="krPct">—</div>
+            <div class="sub" id="krSub"></div>
+          </section>
+          <section class="card">
+            <div class="label">미장</div>
+            <div class="pct" id="usPct">—</div>
+            <div class="sub" id="usSub"></div>
+          </section>
+          <section class="card">
+            <div class="label">현금</div>
+            <div class="pct" id="cashPct">—</div>
+            <div class="sub" id="cashSub"></div>
+          </section>
+        </div>
+
+        <section class="section">
+          <h2>벤치마크 수익률 비교</h2>
+          <div class="performance-grid" id="performance"></div>
+        </section>
+
+        <section class="section">
+          <h2>종목 비중</h2>
+          <div class="allocation-card">
+            <div class="pie" id="pie" role="img" aria-label="종목 비중 파이차트"></div>
+            <div class="pie-legend" id="pieLegend"></div>
           </div>
-          <p class="err" id="cashErr"></p>
-          <button class="btn" type="submit">반영</button>
-        </form>
+          <div class="list" id="weights"></div>
+        </section>
       </section>
     </div>
     <script src="app.js"></script>
