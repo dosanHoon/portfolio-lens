@@ -9,8 +9,8 @@
   ];
   var BENCHMARKS = {
     asOf: "2026-09-04",
-    ytd: { sp500: 5.9, kospi: 58.7 },
-    yoy: { sp500: 15.1, kospi: 108.9 }
+    ytd: { sp500: 5.9, nasdaq: 7.1, kospi: 58.7 },
+    yoy: { sp500: 15.1, nasdaq: 18.4, kospi: 108.9 }
   };
 
   var SAMPLE = {
@@ -138,7 +138,9 @@
       .replace(/"/g, "&quot;");
   }
 
-  function regionOf(ticker) {
+  function regionOf(ticker, currency) {
+    if (currency === "USD") return "us";
+    if (currency === "KRW") return "kr";
     var t = String(ticker || "").trim().toUpperCase();
     var bare = t.replace(/\.(KS|KQ)$/, "");
     if (/^[0-9A-Z]{6}$/.test(bare) || /\.(KS|KQ)$/.test(t)) return "kr";
@@ -172,7 +174,7 @@
           cost: 0,
           costShares: 0,
           priceTotal: 0,
-          region: regionOf(ticker),
+          region: regionOf(ticker, currency),
           kind: "stock"
         };
       }
@@ -495,6 +497,7 @@
     var values = [
       { key: "portfolio", label: "내 포트폴리오", value: portfolioValue },
       { key: "sp500", label: "S&P 500", value: benchmarks.sp500 },
+      { key: "nasdaq", label: "나스닥", value: benchmarks.nasdaq },
       { key: "kospi", label: "코스피", value: benchmarks.kospi }
     ];
     var available = values.filter(function (item) { return item.value != null && isFinite(item.value); });
