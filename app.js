@@ -12,6 +12,14 @@
     ytd: { sp500: 5.9, nasdaq: 7.1, kospi: 58.7 },
     yoy: { sp500: 15.1, nasdaq: 18.4, kospi: 108.9 }
   };
+  var AI_TICKERS = {
+    NVDA: true, AMD: true, AVGO: true, PLTR: true, GOOGL: true,
+    MSFT: true, META: true, AMZN: true, ORCL: true, IREN: true,
+    INTC: true, MU: true, TSM: true, ASML: true, ARM: true,
+    SMCI: true, DRAM: true, "005930": true, "000660": true,
+    "487130": true, "491010": true, "456600": true,
+    "0174B0.KS": true, "0177N0.KS": true, "396500": true
+  };
 
   var SAMPLE = {
     fx: 1400,
@@ -156,6 +164,13 @@
     );
   }
 
+  function isAiHolding(holding) {
+    var ticker = String(holding.ticker || "").toUpperCase();
+    var name = String(holding.name || "").toUpperCase();
+    return !!AI_TICKERS[ticker] ||
+      /(^|[^A-Z])AI([^A-Z]|$)|인공지능|반도체|메모리|DRAM|엔비디아|하이닉스/.test(name);
+  }
+
   function aggregateHoldings(holdings, fx) {
     var groups = {};
     holdings.filter(isComplete).forEach(function (h) {
@@ -241,6 +256,9 @@
       return sum + (item.region === "us" ? item.value : 0);
     }, 0);
     var cash = cashKrw + cashUsdKrw;
+    var stockTotal = stocks.reduce(function (sum, item) { return sum + item.value; }, 0);
+    var aiItems = stocks.filter(isAiHolding);
+    var aiValue = aiItems.reduce(function (sum, item) { return sum + item.value; }, 0);
     var performance = input.performance || defaultPerformance();
 
     return {
@@ -251,6 +269,10 @@
       cash: cash,
       cashKrw: cashKrw,
       cashUsd: input.cashUsd || 0,
+      stockTotal: stockTotal,
+      aiValue: aiValue,
+      aiCount: aiItems.length,
+      aiPct: stockTotal ? (aiValue / stockTotal) * 100 : 0,
       krPct: total ? (kr / total) * 100 : 0,
       usPct: total ? (us / total) * 100 : 0,
       cashPct: total ? (cash / total) * 100 : 0,
@@ -405,19 +427,22 @@
   }
 
   function chartItems(items) {
-    if (items.length <= 10) return items.map(function (item) {
-      return { name: item.name, value: item.value, weight: item.weight };
-    });
-    var top = items.slice(0, 9).map(function (item) {
-      return { name: item.name, value: item.value, weight: item.weight };
-    });
-    var rest = items.slice(9).reduce(function (sum, item) { return sum + item.value; }, 0);
     var total = items.reduce(function (sum, item) { return sum + item.value; }, 0);
+    var normalized = items.map(function (item) {
+      return {
+        name: item.name,
+        value: item.value,
+        weight: total ? item.value / total * 100 : 0
+      };
+    });
+    if (normalized.length <= 10) return normalized;
+    var top = normalized.slice(0, 9);
+    var rest = normalized.slice(9).reduce(function (sum, item) { return sum + item.value; }, 0);
     top.push({
       name: "기타",
       value: rest,
       weight: total ? rest / total * 100 : 0,
-      details: items.slice(9).map(function (item) {
+      details: normalized.slice(9).map(function (item) {
         return { name: item.name, weight: item.weight };
       })
     });
@@ -533,35 +558,17 @@
     document.getElementById("cashSub").textContent = out.total
       ? formatWon(out.cashKrw) + " · $" + round1(out.cashUsd).toLocaleString("ko-KR")
       : "";
+    document.getElementById("aiPct").textContent = out.stockTotal ? formatPct(out.aiPct) : "—";
+    document.getElementById("aiValue").textContent = out.stockTotal ? formatWon(out.aiValue) : "";
+    document.getElementById("aiSub").textContent = out.stockTotal
+      ? "AI 관련 " + out.aiCount + "개 종목 · 주식 평가액 기준"
+      : "분석할 주식이 없습니다.";
 
     document.getElementById("performance").innerHTML =
       renderPerformanceCard("YTD", out.returns.ytd, BENCHMARKS.ytd) +
       renderPerformanceCard("YOY", out.returns.yoy, BENCHMARKS.yoy);
 
-    renderPie(out.items);
-    var box = document.getElementById("weights");
-    if (!out.items.length) {
-      box.innerHTML = '<div class="empty">완성된 종목이 없습니다.</div>';
-      return;
-    }
-    box.innerHTML = out.items.map(function (item) {
-      var pnl = "";
-      if (item.pnl != null) {
-        var sign = item.pnl > 0 ? "+" : "";
-        var cls = item.pnl > 0 ? "up" : item.pnl < 0 ? "down" : "";
-        pnl = ' · <span class="pnl ' + cls + '">' + sign +
-          formatWon(item.pnl) + " · " + sign + formatPct(item.pnlPct) + "</span>";
-      }
-      var detail = item.kind === "stock"
-        ? round1(item.shares).toLocaleString("ko-KR") + "주 · " + item.currency
-        : item.ticker;
-      return '<div class="row"><div class="row-top"><div><span class="row-name">' +
-        esc(item.name) + '</span><span class="row-ticker">' + esc(detail) +
-        '</span></div><div class="row-weight">' + formatPct(item.weight) +
-        '</div></div><div class="bar"><span style="width:' +
-        Math.min(100, item.weight) + '%"></span></div><div class="row-meta">' +
-        formatWon(item.value) + pnl + "</div></div>";
-    }).join("");
+    renderPie(out.items.filter(function (item) { return item.kind === "stock"; }));
   }
 
   function findHolding(id) {
