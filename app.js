@@ -7,6 +7,11 @@
     "#00a661", "#8b5cf6", "#ff7a00", "#4c6ef5", "#e64980",
     "#12b886", "#868e96"
   ];
+  var BENCHMARKS = {
+    asOf: "2026-09-04",
+    ytd: { sp500: 5.9, kospi: 58.7 },
+    yoy: { sp500: 15.1, kospi: 108.9 }
+  };
 
   var SAMPLE = {
     fx: 1400,
@@ -25,11 +30,7 @@
       yearEndValue: null,
       ytdNetFlow: 0,
       yearAgoValue: null,
-      yoyNetFlow: 0,
-      benchmarks: {
-        ytd: { sp500: null, nasdaq: null, kospi: null },
-        yoy: { sp500: null, nasdaq: null, kospi: null }
-      }
+      yoyNetFlow: 0
     };
   }
 
@@ -80,26 +81,11 @@
 
   function normalizePerformance(raw) {
     var p = raw || {};
-    var b = p.benchmarks || {};
-    var ytd = b.ytd || {};
-    var yoy = b.yoy || {};
     return {
       yearEndValue: nullablePositive(p.yearEndValue),
       ytdNetFlow: nullableNumber(p.ytdNetFlow) || 0,
       yearAgoValue: nullablePositive(p.yearAgoValue),
-      yoyNetFlow: nullableNumber(p.yoyNetFlow) || 0,
-      benchmarks: {
-        ytd: {
-          sp500: nullableNumber(ytd.sp500),
-          nasdaq: nullableNumber(ytd.nasdaq),
-          kospi: nullableNumber(ytd.kospi)
-        },
-        yoy: {
-          sp500: nullableNumber(yoy.sp500),
-          nasdaq: nullableNumber(yoy.nasdaq),
-          kospi: nullableNumber(yoy.kospi)
-        }
-      }
+      yoyNetFlow: nullableNumber(p.yoyNetFlow) || 0
     };
   }
 
@@ -413,13 +399,6 @@
       var input = document.querySelector('[data-performance="' + key + '"]');
       input.value = state.performance[key] == null ? "" : state.performance[key];
     });
-    ["ytd", "yoy"].forEach(function (period) {
-      ["sp500", "nasdaq", "kospi"].forEach(function (key) {
-        var input = document.querySelector('[data-benchmark="' + period + "." + key + '"]');
-        var value = state.performance.benchmarks[period][key];
-        input.value = value == null ? "" : value;
-      });
-    });
   }
 
   function chartItems(items) {
@@ -462,12 +441,10 @@
   }
 
   function renderPerformanceCard(period, portfolioValue, benchmarks) {
-    var labels = { sp500: "S&P 500", nasdaq: "나스닥", kospi: "코스피" };
     var values = [
       { key: "portfolio", label: "내 포트폴리오", value: portfolioValue },
-      { key: "sp500", label: labels.sp500, value: benchmarks.sp500 },
-      { key: "nasdaq", label: labels.nasdaq, value: benchmarks.nasdaq },
-      { key: "kospi", label: labels.kospi, value: benchmarks.kospi }
+      { key: "sp500", label: "S&P 500", value: benchmarks.sp500 },
+      { key: "kospi", label: "코스피", value: benchmarks.kospi }
     ];
     var available = values.filter(function (item) { return item.value != null && isFinite(item.value); });
     if (!available.length) {
@@ -504,8 +481,8 @@
       : "";
 
     document.getElementById("performance").innerHTML =
-      renderPerformanceCard("YTD", out.returns.ytd, state.performance.benchmarks.ytd) +
-      renderPerformanceCard("YOY", out.returns.yoy, state.performance.benchmarks.yoy);
+      renderPerformanceCard("YTD", out.returns.ytd, BENCHMARKS.ytd) +
+      renderPerformanceCard("YOY", out.returns.yoy, BENCHMARKS.yoy);
 
     renderPie(out.items);
     var box = document.getElementById("weights");
@@ -624,14 +601,6 @@
       state.performance[key] = key.indexOf("Value") >= 0
         ? nullablePositive(event.target.value)
         : nullableNumber(event.target.value) || 0;
-      saveState();
-    });
-  });
-
-  document.querySelectorAll("[data-benchmark]").forEach(function (input) {
-    input.addEventListener("input", function (event) {
-      var path = event.target.getAttribute("data-benchmark").split(".");
-      state.performance.benchmarks[path[0]][path[1]] = nullableNumber(event.target.value);
       saveState();
     });
   });

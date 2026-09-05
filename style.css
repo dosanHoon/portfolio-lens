@@ -424,6 +424,13 @@ h1 {
   margin-bottom: 10px;
 }
 
+.section-note {
+  margin: -4px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .performance-grid {
   display: grid;
   gap: 12px;
@@ -716,9 +723,12 @@ h1 {
     grid-column: auto;
   }
 
-  .history-grid,
   .performance-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .history-grid {
+    max-width: 420px;
   }
 
   .allocation-card {
