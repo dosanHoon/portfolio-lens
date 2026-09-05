@@ -515,9 +515,13 @@ h1 {
 }
 
 .pie {
+  position: relative;
   width: min(240px, 68vw);
   aspect-ratio: 1;
   border-radius: 50%;
+}
+
+.pie.is-empty {
   background: var(--line);
 }
 

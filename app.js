@@ -340,6 +340,7 @@
 
   var state = loadState();
   var currentTab = localStorage.getItem(TAB_KEY) === "analyze" ? "analyze" : "manage";
+  var allocationChart = null;
 
   function setTab(tab) {
     currentTab = tab === "analyze" ? "analyze" : "manage";
@@ -410,29 +411,79 @@
     });
     var rest = items.slice(9).reduce(function (sum, item) { return sum + item.value; }, 0);
     var total = items.reduce(function (sum, item) { return sum + item.value; }, 0);
-    top.push({ name: "기타", value: rest, weight: total ? rest / total * 100 : 0 });
+    top.push({
+      name: "기타",
+      value: rest,
+      weight: total ? rest / total * 100 : 0,
+      details: items.slice(9).map(function (item) {
+        return { name: item.name, weight: item.weight };
+      })
+    });
     return top;
   }
 
   function renderPie(items) {
     var pie = document.getElementById("pie");
+    var canvas = document.getElementById("allocationChart");
     var legend = document.getElementById("pieLegend");
+    if (allocationChart) {
+      allocationChart.destroy();
+      allocationChart = null;
+    }
     if (!items.length) {
-      pie.style.background = "var(--line)";
+      pie.classList.add("is-empty");
+      canvas.hidden = true;
       legend.innerHTML = '<div class="empty">표시할 종목이 없습니다</div>';
       return;
     }
+    pie.classList.remove("is-empty");
+    canvas.hidden = false;
     var shown = chartItems(items);
-    var cursor = 0;
-    var stops = shown.map(function (item, index) {
-      var start = cursor;
-      cursor += item.weight;
-      return COLORS[index % COLORS.length] + " " + start + "% " + cursor + "%";
-    });
-    pie.style.background = "conic-gradient(" + stops.join(",") + ")";
-    pie.setAttribute("aria-label", shown.map(function (item) {
+    canvas.setAttribute("aria-label", shown.map(function (item) {
       return item.name + " " + formatPct(item.weight);
     }).join(", "));
+    if (typeof Chart === "undefined") {
+      legend.innerHTML = '<div class="empty">차트 라이브러리를 불러오지 못했습니다</div>';
+      return;
+    }
+    allocationChart = new Chart(canvas, {
+      type: "doughnut",
+      data: {
+        labels: shown.map(function (item) { return item.name; }),
+        datasets: [{
+          data: shown.map(function (item) { return item.value; }),
+          backgroundColor: shown.map(function (_, index) {
+            return COLORS[index % COLORS.length];
+          }),
+          borderColor: "#ffffff",
+          borderWidth: 2,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "58%",
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                return context.label + " " + formatPct(shown[context.dataIndex].weight);
+              },
+              afterBody: function (contexts) {
+                if (!contexts.length) return [];
+                var details = shown[contexts[0].dataIndex].details;
+                if (!details || !details.length) return [];
+                return ["", "포함 종목"].concat(details.map(function (item) {
+                  return item.name + " " + formatPct(item.weight);
+                }));
+              }
+            }
+          }
+        }
+      }
+    });
     legend.innerHTML = shown.map(function (item, index) {
       return '<div class="legend-row"><span class="legend-dot" style="background:' +
         COLORS[index % COLORS.length] + '"></span><span class="legend-name">' +

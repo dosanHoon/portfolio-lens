@@ -152,13 +152,16 @@
         <section class="section">
           <h2>종목 비중</h2>
           <div class="allocation-card">
-            <div class="pie" id="pie" role="img" aria-label="종목 비중 파이차트"></div>
+            <div class="pie" id="pie">
+              <canvas id="allocationChart" role="img" aria-label="종목 비중 도넛 차트"></canvas>
+            </div>
             <div class="pie-legend" id="pieLegend"></div>
           </div>
           <div class="list" id="weights"></div>
         </section>
       </section>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
