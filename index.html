@@ -57,7 +57,7 @@
             </div>
             <button class="small-btn" type="button" id="addRow">행 추가</button>
           </div>
-          <p class="sheet-hint">미국 종목은 통화를 USD로 선택하고 가격을 달러로 입력하세요.</p>
+          <p class="sheet-hint">미국 종목은 통화를 USD로 선택하고 가격을 달러로 입력하세요. 분류를 자동으로 두면 종목명·티커로 지수·개별·크립토를 추정합니다.</p>
           <div class="sheet-scroll">
             <table class="sheet" id="sheet">
               <thead>
@@ -68,6 +68,7 @@
                   <th>통화</th>
                   <th>현재가</th>
                   <th>평단</th>
+                  <th>분류</th>
                   <th></th>
                 </tr>
               </thead>
@@ -78,7 +79,7 @@
 
         <details class="bulk">
           <summary>JSON · 엑셀 붙여넣기</summary>
-          <p class="hint">엑셀은 이름 / 티커 / 수량 / 통화 / 현재가 / 평단 순서입니다. JSON은 전체 설정을 함께 백업합니다.</p>
+          <p class="hint">엑셀은 이름 / 티커 / 수량 / 통화 / 현재가 / 평단 순서이고, 일곱 번째 칸에 분류를 넣을 수 있습니다. JSON은 전체 설정을 함께 백업합니다.</p>
           <textarea id="bulk" rows="8" spellcheck="false" placeholder='이름	티커	수량	통화	현재가	평단
 삼성전자	005930	100	KRW	80000	70000
 엔비디아	NVDA	10	USD	180	150
@@ -92,9 +93,49 @@
           </div>
         </details>
 
+        <details class="bulk target-input" open>
+          <summary>목표 배분 · 현금 관찰선</summary>
+          <p class="hint">4버킷 목표 비중과 현금 관찰 범위입니다. 분석 탭의 목표 배분·현금 카드가 이 값을 씁니다.</p>
+          <div class="settings-grid target-grid">
+            <label class="setting-field">
+              <span>인덱스</span>
+              <input data-target="인덱스" inputmode="decimal" placeholder="50" autocomplete="off" />
+              <small>%</small>
+            </label>
+            <label class="setting-field">
+              <span>개별종목</span>
+              <input data-target="개별종목" inputmode="decimal" placeholder="20" autocomplete="off" />
+              <small>%</small>
+            </label>
+            <label class="setting-field">
+              <span>현금</span>
+              <input data-target="현금" inputmode="decimal" placeholder="25" autocomplete="off" />
+              <small>%</small>
+            </label>
+            <label class="setting-field">
+              <span>크립토</span>
+              <input data-target="크립토" inputmode="decimal" placeholder="5" autocomplete="off" />
+              <small>%</small>
+            </label>
+          </div>
+          <p class="target-sum" id="targetSum"></p>
+          <div class="settings-grid cash-band-grid">
+            <label class="setting-field">
+              <span>현금 관찰 하단</span>
+              <input data-band="min" inputmode="decimal" placeholder="20" autocomplete="off" />
+              <small>%</small>
+            </label>
+            <label class="setting-field">
+              <span>현금 관찰 상단</span>
+              <input data-band="max" inputmode="decimal" placeholder="30" autocomplete="off" />
+              <small>%</small>
+            </label>
+          </div>
+        </details>
+
         <details class="bulk benchmark-input">
           <summary>YTD · YOY 비교 입력</summary>
-          <p class="hint">내 수익률 계산에 필요한 기준금액만 입력합니다. 벤치마크는 S&amp;P 500·나스닥(원화 환산)과 코스피로 고정됩니다.</p>
+          <p class="hint">내 수익률 계산에 필요한 기준금액만 입력합니다. 벤치마크 S&amp;P 500은 원화 환산으로 고정됩니다.</p>
           <div class="history-grid">
             <div class="history-block">
               <h3>포트폴리오 기준금액</h3>
@@ -120,62 +161,9 @@
       </section>
 
       <section class="panel is-hidden" id="panel-analyze" role="tabpanel" aria-labelledby="tab-analyze" hidden>
-        <section class="hero">
-          <div class="label">총 평가액</div>
-          <div class="amount" id="total">0원</div>
-        </section>
-
-        <div class="split">
-          <section class="card">
-            <div class="label">국장</div>
-            <div class="pct" id="krPct">—</div>
-            <div class="sub" id="krSub"></div>
-          </section>
-          <section class="card">
-            <div class="label">미장</div>
-            <div class="pct" id="usPct">—</div>
-            <div class="sub" id="usSub"></div>
-          </section>
-          <section class="card">
-            <div class="label">현금</div>
-            <div class="pct" id="cashPct">—</div>
-            <div class="sub" id="cashSub"></div>
-          </section>
-        </div>
-
-        <section class="section">
-          <h2>AI 익스포저</h2>
-          <p class="section-note">종목명·티커로 분류한 직접 AI 관련 종목 및 ETF의 추정 비중입니다.</p>
-          <div class="ai-card">
-            <div>
-              <div class="label">주식 중 AI 관련 비중</div>
-              <div class="ai-pct" id="aiPct">—</div>
-            </div>
-            <div class="ai-detail">
-              <b id="aiValue"></b>
-              <span id="aiSub"></span>
-            </div>
-          </div>
-        </section>
-
-        <section class="section">
-          <h2>벤치마크 수익률 비교</h2>
-          <p class="section-note">S&amp;P 500·나스닥은 원화 환산 · 코스피는 지수 수익률 · 2026-09-04 기준<br />내 포트폴리오가 —이면 종목 관리에서 기간 시작 평가액을 입력하세요.</p>
-          <div class="performance-grid" id="performance"></div>
-        </section>
-
-        <section class="section">
-          <h2>종목 비중</h2>
-          <div class="allocation-card">
-            <div class="pie" id="pie">
-              <canvas id="allocationChart" role="img" aria-label="종목 비중 도넛 차트"></canvas>
-            </div>
-            <div class="pie-legend" id="pieLegend"></div>
-          </div>
-        </section>
+        <div id="analyzeRoot"></div>
       </section>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
