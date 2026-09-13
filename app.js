@@ -46,7 +46,12 @@
       { id: "s2", name: "QQQ", ticker: "QQQ", shares: 20, currency: "USD", price: 360, avgPrice: 320 },
       { id: "s3", name: "엔비디아", ticker: "NVDA", shares: 8, currency: "USD", price: 180, avgPrice: 150 }
     ],
-    performance: defaultPerformance(),
+    performance: {
+      yearEndValue: 20000000,
+      ytdNetFlow: 0,
+      yearAgoValue: 18000000,
+      yoyNetFlow: 0
+    },
     targets: clone(DEFAULT_TARGETS),
     cashBand: clone(DEFAULT_CASH_BAND)
   };
@@ -809,9 +814,11 @@
           '<div class="tx-hero-s">' + (out.total ? formatWon(out.total) + " · 주식 · 현금 포함" : "종목을 입력하세요") + "</div>" +
           pnlLine +
           '<div class="tx-growth">' +
-            growthPill("YTD", out.returns.ytd, "전년도 말 평가액 기준") +
-            growthPill("YOY", out.returns.yoy, "1년 전 평가액 기준") +
-            '<span class="tx-growth-basis">기준금액 입력 시 표시</span>' +
+            growthPill("YTD", out.returns.ytd, "전년도 말 평가액 기준 · 순입금 반영") +
+            growthPill("YOY", out.returns.yoy, "1년 전 평가액 기준 · 순입금 반영") +
+            (out.returns.ytd == null && out.returns.yoy == null
+              ? '<span class="tx-growth-basis tx-growth-hint">종목 관리 → YTD·YOY 기준금액 입력</span>'
+              : '<span class="tx-growth-basis">기준금액 · 순입금 반영</span>') +
           "</div>" +
         "</div>" +
         '<div class="tx-hero-r">' +
@@ -1050,13 +1057,15 @@
     });
   }
 
+  function refreshAnalyzeIfVisible() {
+    if (currentTab === "analyze") renderAnalyze();
+  }
+
   function renderAnalyze() {
     var out = compute(state);
     document.getElementById("analyzeRoot").innerHTML =
       renderAnalyzeHome(out) +
       renderCashMonitor(out) +
-      foldCard("포트폴리오 비중 — 4버킷 (큰그림)", renderPortfolioWeight(out), true) +
-      foldCard("목표 배분 vs 현재", renderAllocationCompare(out), true) +
       foldCard("종목 비중", renderStockWeights(out), true) +
       foldCard("익스포저 — 국장·미장 · AI 우산", renderExposureBlock(out), true) +
       renderBenchmarkBlock(out);
@@ -1148,6 +1157,7 @@
     document.getElementById(key).addEventListener("input", function (event) {
       state[key] = positiveOrZero(event.target.value);
       saveState();
+      refreshAnalyzeIfVisible();
     });
   });
 
@@ -1158,6 +1168,7 @@
         ? nullablePositive(event.target.value)
         : nullableNumber(event.target.value) || 0;
       saveState();
+      refreshAnalyzeIfVisible();
     });
   });
 

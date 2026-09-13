@@ -47,6 +47,30 @@
               <small>USD</small>
             </label>
           </div>
+          <h2 class="input-subhead">YTD · YOY 기준금액</h2>
+          <p class="hint input-hint">전년도 말·1년 전 평가액을 넣으면 분석 히어로와 벤치마크에 수익률이 표시됩니다. 순입금은 입금 − 출금(출금은 음수)입니다.</p>
+          <div class="history-grid performance-grid">
+            <label class="setting-field">
+              <span>전년도 말 평가액</span>
+              <input id="yearEndValue" data-performance="yearEndValue" inputmode="decimal" placeholder="YTD 시작금액" autocomplete="off" />
+              <small>YTD 분모</small>
+            </label>
+            <label class="setting-field">
+              <span>올해 순입금</span>
+              <input id="ytdNetFlow" data-performance="ytdNetFlow" inputmode="decimal" placeholder="0" autocomplete="off" />
+              <small>올해 입금 − 출금</small>
+            </label>
+            <label class="setting-field">
+              <span>1년 전 평가액</span>
+              <input id="yearAgoValue" data-performance="yearAgoValue" inputmode="decimal" placeholder="YOY 시작금액" autocomplete="off" />
+              <small>YOY 분모</small>
+            </label>
+            <label class="setting-field">
+              <span>최근 1년 순입금</span>
+              <input id="yoyNetFlow" data-performance="yoyNetFlow" inputmode="decimal" placeholder="0" autocomplete="off" />
+              <small>1년 입금 − 출금</small>
+            </label>
+          </div>
         </div>
 
         <div class="sheet-card">
@@ -133,31 +157,6 @@
           </div>
         </details>
 
-        <details class="bulk benchmark-input">
-          <summary>YTD · YOY 비교 입력</summary>
-          <p class="hint">내 수익률 계산에 필요한 기준금액만 입력합니다. 벤치마크 S&amp;P 500은 원화 환산으로 고정됩니다.</p>
-          <div class="history-grid">
-            <div class="history-block">
-              <h3>포트폴리오 기준금액</h3>
-              <label class="setting-field">
-                <span>전년도 말 평가액</span>
-                <input id="yearEndValue" data-performance="yearEndValue" inputmode="decimal" placeholder="YTD 시작금액" />
-              </label>
-              <label class="setting-field">
-                <span>올해 순입금</span>
-                <input id="ytdNetFlow" data-performance="ytdNetFlow" inputmode="decimal" placeholder="출금은 음수" />
-              </label>
-              <label class="setting-field">
-                <span>1년 전 평가액</span>
-                <input id="yearAgoValue" data-performance="yearAgoValue" inputmode="decimal" placeholder="YOY 시작금액" />
-              </label>
-              <label class="setting-field">
-                <span>최근 1년 순입금</span>
-                <input id="yoyNetFlow" data-performance="yoyNetFlow" inputmode="decimal" placeholder="출금은 음수" />
-              </label>
-            </div>
-          </div>
-        </details>
       </section>
 
       <section class="panel is-hidden" id="panel-analyze" role="tabpanel" aria-labelledby="tab-analyze" hidden>
