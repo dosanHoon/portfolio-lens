@@ -174,6 +174,16 @@
     return Math.round(value).toLocaleString("ko-KR") + "원";
   }
 
+  function formatEok(value) {
+    if (!value) return "0원";
+    if (value < 1e8) return formatWon(value);
+    return (value / 1e8).toFixed(2) + "억";
+  }
+
+  function bucketLabel(key) {
+    return key === "크립토" ? "크립토+금" : key;
+  }
+
   function formatPct(value) {
     return value == null || !isFinite(value) ? "—" : round1(value).toFixed(1) + "%";
   }
@@ -605,6 +615,155 @@
       '</summary><div class="asset-more-body">' + html + "</div></details>";
   }
 
+  function stockGroupName(item) {
+    var name = item.name || "";
+    var ticker = String(item.ticker || "").toUpperCase();
+    if (ticker === "SPY" || ticker === "SPLG" || ticker === "VOO" || /미국S&P500/.test(name)) return "S&P500";
+    if (ticker === "QQQ" || ticker === "QQQM" || /나스닥100|NASDAQ\s?100/.test(name)) return "나스닥100";
+    if (ticker === "SCHD" || /배당다우/.test(name)) return "미국배당다우존스";
+    if (/코스피100/.test(name)) return "코스피 100";
+    if (/코스피/.test(name) && !/100|150/.test(name)) return "코스피";
+    if (/코스닥150/.test(name)) return "코스닥 150";
+    return name || ticker;
+  }
+
+  function renderDonut(buckets, total) {
+    var bks = buckets.filter(function (b) { return b.value > 0; });
+    if (!bks.length || !total) return "";
+    var angle = 0;
+    var segs = bks.map(function (b) {
+      var pct = b.value / total * 100;
+      var from = angle;
+      angle += pct;
+      return b.color + " " + from.toFixed(2) + "% " + angle.toFixed(2) + "%";
+    });
+    var top = bks.slice().sort(function (a, b) { return b.value - a.value; })[0];
+    return '<div class="donut" style="background:conic-gradient(' + segs.join(",") + ')">' +
+      '<div class="center"><b>' + bucketLabel(top.key) + " " + formatPct(top.pct) + '</b><span>최대 비중</span></div></div>';
+  }
+
+  function renderPortfolioWeight(out) {
+    if (!out.total) return "";
+    var order = out.buckets.slice().sort(function (a, b) { return b.pct - a.pct; });
+    var maxPct = Math.max.apply(null, order.map(function (b) { return b.pct; }));
+    var rows = order.map(function (b) {
+      var width = maxPct ? b.pct / maxPct * 100 : 0;
+      return '<div class="pf-row" data-drill="bucket" data-key="' + b.key + '" title="' + esc(b.key) + ' 구성 보기">' +
+        '<div class="pf-nm"><span class="sw" style="background:' + b.color + '"></span>' + bucketLabel(b.key) + "</div>" +
+        '<div class="pf-track"><i style="width:' + width.toFixed(2) + "%;background:" + b.color + '"></i></div>' +
+        '<div class="pf-meta"><b>' + formatPct(b.pct) + "</b> · " + formatEok(b.value) +
+          ' <span class="tgt">목표 ' + round1(b.target || 0) + "%</span></div></div>";
+    }).join("");
+    return '<div class="pf-block">' +
+      '<div class="pf-top"><div class="donut-wrap">' + renderDonut(out.buckets, out.total) + '</div><div class="pf-bars">' + rows + "</div></div>" +
+      '<div class="pf-note">막대를 누르면 버킷 구성 종목을 확인할 수 있습니다. 버킷색=카테고리(등락색과 무관).</div>' +
+    "</div>";
+  }
+
+  function bucketItems(out, key) {
+    return out.items.filter(function (item) { return item.bucket === key; });
+  }
+
+  function axisItems(out, axis) {
+    var stocks = out.items.filter(function (item) { return item.kind === "stock"; });
+    if (axis === "region") return stocks;
+    if (axis === "ai_umbrella") return stocks.filter(isAiHolding);
+    if (axis === "semi") return stocks.filter(isSemiHolding);
+    return [];
+  }
+
+  function vtableHTML(rows, total, options) {
+    options = options || {};
+    var sorted = rows.slice().sort(function (a, b) { return b.value - a.value; });
+    var sum = sorted.reduce(function (acc, item) { return acc + item.value; }, 0);
+    var body = sorted.map(function (item) {
+      var pct = total ? item.value / total * 100 : 0;
+      var pnl = item.pnlPct == null
+        ? '<span class="vacc">—</span>'
+        : '<span class="' + pctClass(item.pnlPct) + '">' + formatSignedPct(item.pnlPct) + "</span>";
+      return "<tr><td>" + esc(item.name) + "</td>" +
+        (options.showBucket ? "<td>" + esc(item.bucket || "—") + "</td>" : "") +
+        "<td>" + formatEok(item.value) + "</td><td>" + formatPct(pct) + "</td>" +
+        (options.showPnl ? "<td>" + pnl + "</td>" : "") +
+        "</tr>";
+    }).join("");
+    var head = "<thead><tr><th>종목</th>" +
+      (options.showBucket ? "<th>분류</th>" : "") +
+      "<th>평가액</th><th>총액%</th>" +
+      (options.showPnl ? "<th>수익률</th>" : "") +
+      "</tr></thead>";
+    var footPct = total ? sum / total * 100 : 0;
+    var foot = "<tfoot><tr><td>합계</td>" +
+      (options.showBucket ? "<td></td>" : "") +
+      "<td>" + formatEok(sum) + "</td><td>" + formatPct(footPct) + "</td>" +
+      (options.showPnl ? "<td></td>" : "") +
+      "</tr></tfoot>";
+    return '<table class="vtable">' + head + "<tbody>" + body + "</tbody>" + foot + "</table>";
+  }
+
+  function modalShell(titleHTML, sub, body, footnote) {
+    return '<div class="vmodal-head">' +
+        '<div><div class="vt" id="vmodalTitle">' + titleHTML + '</div><div class="vsub">' + sub + "</div></div>" +
+        '<button class="vmodal-x" id="vmodalClose" type="button" aria-label="닫기">×</button></div>' +
+      '<div class="vmodal-body">' + body + '<div class="vmodal-fn">' + footnote + "</div></div>";
+  }
+
+  function bucketModalHTML(key, out) {
+    var bucket = out.buckets.find(function (b) { return b.key === key; }) || { color: "#8b95a1", pct: 0, value: 0 };
+    var items = bucketItems(out, key);
+    var sub = formatPct(bucket.pct) + " · " + formatEok(bucket.value);
+    var body;
+    if (!items.length) {
+      body = key === "현금"
+        ? '<div class="vmodal-empty">원화·달러 현금은 개별 종목 표 없이 합산됩니다.</div>'
+        : '<div class="vmodal-empty">이 버킷에 해당하는 종목이 없습니다.</div>';
+    } else {
+      body = vtableHTML(items, out.total, { showPnl: true });
+    }
+    var title = '<span class="vsw" style="background:' + bucket.color + '"></span>' + bucketLabel(key);
+    var note = "평가액은 입력한 현재가·환율 기준입니다. 분류는 상품 기준이며 계좌와 무관합니다.";
+    return modalShell(title, sub, body, note);
+  }
+
+  function axisModalHTML(axis, out) {
+    var items = axisItems(out, axis);
+    var labels = {
+      region: "국장 : 미장",
+      ai_umbrella: "AI 익스포저 (반도체 포함)",
+      semi: "반도체 노출 (AI 우산의 부분집합)"
+    };
+    var subMap = {
+      region: "국장 " + formatPct(out.regionKrPct) + " · 미장 " + formatPct(out.regionUsPct),
+      ai_umbrella: formatPct(out.aiPct) + " · " + formatEok(out.aiValue),
+      semi: formatPct(out.semiPct) + " · " + formatEok(out.semiValue)
+    };
+    var body = items.length
+      ? vtableHTML(items, out.total, { showBucket: axis === "region" })
+      : '<div class="vmodal-empty">해당 축에 잡히는 종목이 없습니다.</div>';
+    var note = axis === "semi"
+      ? "반도체는 AI 우산의 부분집합입니다. 두 값을 더하지 마세요."
+      : "종목명·티커 기반 추정치입니다. ETF 속성은 반영되지 않을 수 있습니다.";
+    return modalShell("📊 " + (labels[axis] || axis), subMap[axis] || "", body, note);
+  }
+
+  function openVModal(html) {
+    var modal = document.getElementById("vmodal");
+    var box = document.getElementById("vmodalBox");
+    if (!modal || !box) return;
+    box.innerHTML = html;
+    modal.hidden = false;
+    modal.classList.add("on");
+    var closeBtn = document.getElementById("vmodalClose");
+    if (closeBtn) closeBtn.addEventListener("click", closeVModal);
+  }
+
+  function closeVModal() {
+    var modal = document.getElementById("vmodal");
+    if (!modal) return;
+    modal.hidden = true;
+    modal.classList.remove("on");
+  }
+
   function regionColor(region) {
     return REGION_COLORS[region] || "#8b95a1";
   }
@@ -619,6 +778,7 @@
         (title ? ' title="' + esc(title) + '"' : "") +
         "><span>" + label + "</span>" + valueHtml + "</div>";
     };
+    var stockCount = out.items.filter(function (item) { return item.kind === "stock"; }).length;
     var pnl = out.pnl;
     var pnlLine = pnl.amount == null
       ? '<div class="tx-pnl is-empty">평단을 입력하면 평가손익이 보입니다</div>'
@@ -633,19 +793,20 @@
         : (b.off ? (b.diff > 0 ? "과다" : "부족") : "정상");
       var gap = !scored ? "" : " " + (b.diff > 0 ? "+" : "−") +
         Math.abs(round1(b.diff)).toFixed(1) + "%p";
-      return '<div class="tx-tick-i' + (scored && b.off ? (b.diff > 0 ? " hi" : " lo") : "") + '">' +
-        '<div class="tx-tick-k"><span class="sw-dot" style="background:' + b.color + '"></span>' +
-          b.key + "</div>" +
+      return '<button type="button" class="tx-tick-i' + (scored && b.off ? (b.diff > 0 ? " hi" : " lo") : "") +
+        '" data-drill="bucket" data-key="' + b.key + '">' +
+        '<div class="tx-tick-k"><span class="sw" style="background:' + b.color + '"></span>' +
+          bucketLabel(b.key) + "</div>" +
         '<div class="tx-tick-v">' + (out.total ? formatPct(b.pct) : "—") + "</div>" +
         '<div class="tx-tick-s">' + verdict + gap + "</div>" +
-      "</div>";
+      "</button>";
     }).join("");
     return '<div class="card tx-home">' +
       '<div class="tx-hero">' +
         '<div class="tx-hero-l">' +
           '<div class="tx-hero-k">총 평가액</div>' +
-          '<div class="tx-hero-v">' + (out.total ? formatWon(out.total) : "0원") + "</div>" +
-          '<div class="tx-hero-s">' + (out.total ? "주식 · 현금 포함" : "종목을 입력하세요") + "</div>" +
+          '<div class="tx-hero-v">' + (out.total ? formatEok(out.total) : "0원") + "</div>" +
+          '<div class="tx-hero-s">' + (out.total ? formatWon(out.total) + " · 주식 · 현금 포함" : "종목을 입력하세요") + "</div>" +
           pnlLine +
           '<div class="tx-growth">' +
             growthPill("YTD", out.returns.ytd, "전년도 말 평가액 기준") +
@@ -653,9 +814,13 @@
             '<span class="tx-growth-basis">기준금액 입력 시 표시</span>' +
           "</div>" +
         "</div>" +
+        '<div class="tx-hero-r">' +
+          '<div class="tx-hero-stat"><span>종목</span><b>' + stockCount + "</b></div>" +
+          '<div class="tx-hero-stat"><span>버킷</span><b>4</b></div>' +
+        "</div>" +
       "</div>" +
       '<div class="tx-tick tx-tick-4">' + tick + "</div>" +
-      '<div class="tx-foot">분류는 상품 기준입니다. 섹터·테마 ETF와 레버리지는 개별종목으로 봅니다.</div>' +
+      '<div class="tx-foot">분류는 상품 기준입니다. 섹터·테마 ETF와 레버리지는 개별종목으로 봅니다. 칸을 누르면 구성 종목을 볼 수 있습니다.</div>' +
     "</div>";
   }
 
@@ -670,7 +835,7 @@
       var cls = b.off ? (b.diff > 0 ? "hi" : "lo") : "ok";
       var verdict = b.off ? (b.diff > 0 ? "과다" : "부족") : "정상";
       return '<div class="ac-row">' +
-        '<div class="ac-nm"><span class="sw-dot" style="background:' + b.color + '"></span>' + b.key + "</div>" +
+        '<div class="ac-nm"><span class="sw" style="background:' + b.color + '"></span>' + bucketLabel(b.key) + "</div>" +
         '<div class="ac-track">' +
           '<i class="ac-fill" style="width:' + Math.min(b.pct / scale * 100, 100).toFixed(1) +
             "%;background:" + b.color + '"></i>' +
@@ -712,56 +877,93 @@
     var width = Math.max(0, Math.min(100 - left, (band.max - band.min) / scale * 100));
     var mark = Math.max(0, Math.min(100, pct / scale * 100));
     var status = pct < band.min ? "하단 아래" : pct > band.max ? "상단 위" : "범위 안";
-    return '<div class="card cash-monitor">' +
-      '<div class="cm-head"><span>현금 비중 관찰선</span><em class="' +
-        (status === "범위 안" ? "ok" : "off") + '">' + status + "</em></div>" +
-      '<div class="cm-value"><strong>' + round1(pct).toFixed(1) + "<small>%</small></strong>" +
-        "<span>" + formatWon(out.cash) + " / " + formatWon(out.total) + "</span></div>" +
-      '<div class="cm-bar"><i style="left:' + left.toFixed(1) + "%;width:" + width.toFixed(1) +
-        '%"></i><b style="left:' + mark.toFixed(1) + '%"></b></div>' +
-      '<div class="cm-scale"><span>0</span><span>관찰 ' + round1(band.min) + "–" + round1(band.max) +
-        "%</span><span>" + scale + "%</span></div>" +
-      '<div class="cm-note">범위는 상태를 보기 위한 관찰선입니다. 매매 방아쇠가 아니며, 리밸런싱 판단은 목표 배분만 씁니다.</div>' +
-    "</div>";
+    return '<section class="card cash-monitor">' +
+      '<h2>현금 비중 · 관찰선</h2>' +
+      '<div class="cash-monitor-grid">' +
+        '<article class="cash-monitor-card">' +
+          '<div class="cash-monitor-head"><span>전체 현금</span><em class="' +
+            (status === "범위 안" ? "" : "off") + '">' + status + "</em></div>" +
+          '<div class="cash-monitor-value"><strong>' + round1(pct).toFixed(1) + "<small>%</small></strong>" +
+            "<span>" + formatEok(out.cash) + " / " + formatEok(out.total) + "</span></div>" +
+          '<div class="cash-monitor-bar"><i style="left:' + left.toFixed(1) + "%;width:" + width.toFixed(1) +
+            '%"></i><b style="left:' + mark.toFixed(1) + '%"></b></div>' +
+          '<div class="cash-monitor-scale"><span>0</span><span>관찰 ' + round1(band.min) + "–" + round1(band.max) +
+            "%</span><span>" + scale + "%</span></div>" +
+          '<p>원화·달러 현금 합산 · 총 평가액 대비</p>' +
+        "</article>" +
+      "</div>" +
+      '<div class="cm-note">두 구간은 상태를 보기 위한 관찰선입니다. 매수·매도 방아쇠는 아니며, 리밸런싱 판단은 4버킷 목표만 사용합니다.</div>' +
+    "</section>";
   }
 
   function renderStockWeights(out) {
-    var stocks = out.items.filter(function (item) { return item.kind === "stock"; });
+    var stocks = out.items.filter(function (item) {
+      return item.kind === "stock" && item.bucket !== "현금" && item.bucket !== "크립토";
+    });
     if (!stocks.length || !out.total) {
       return '<div class="empty">표시할 종목이 없습니다</div>';
     }
-    var shown = stocks.slice(0, 10);
-    var rest = stocks.slice(10);
+    var grouped = {};
+    stocks.forEach(function (item) {
+      var key = stockGroupName(item);
+      if (!grouped[key]) {
+        grouped[key] = {
+          name: key,
+          bucket: item.bucket,
+          value: 0,
+          members: [],
+          pnl: 0,
+          cost: 0,
+          hasPnl: true
+        };
+      }
+      var g = grouped[key];
+      g.value += item.value;
+      if (g.members.indexOf(item.name) < 0) g.members.push(item.name);
+      if (item.pnl == null) g.hasPnl = false;
+      else {
+        g.pnl += item.pnl;
+        g.cost += item.value - item.pnl;
+      }
+    });
+    var all = Object.keys(grouped).map(function (key) {
+      var g = grouped[key];
+      g.pnlPct = g.hasPnl && g.cost > 0 ? g.pnl / g.cost * 100 : null;
+      return g;
+    }).sort(function (a, b) { return b.value - a.value; });
+    var shown = all.slice(0, 10);
+    var rest = all.slice(10);
     var max = shown[0].value || 1;
     var rows = shown.map(function (item, index) {
       var pct = item.value / out.total * 100;
-      var col = BUCKET_COLORS[item.bucket] || regionColor(item.region);
+      var col = BUCKET_COLORS[item.bucket] || regionColor("kr");
+      var memberTip = item.members.length > 1 ? ' title="' + esc("포함: " + item.members.join(" · ")) + '"' : "";
       var pnlChip = item.pnlPct == null
         ? '<span class="sw-pnl is-empty">평단 없음</span>'
         : '<span class="sw-pnl ' + pctClass(item.pnlPct) + '">' + formatSignedPct(item.pnlPct) + "</span>";
-      return '<div class="sw-row">' +
+      return '<div class="sw-row"' + memberTip + ">" +
         '<div class="sw-rank">' + (index + 1) + "</div>" +
         '<div class="sw-main">' +
           '<div class="sw-top">' +
             '<div class="sw-name"><span class="sw-dot" style="background:' + col + '"></span>' +
-              esc(item.name) + "</div>" +
-            '<div class="sw-value"><b>' + formatWon(item.value) + "</b><span>" + formatPct(pct) + "</span></div>" +
+              esc(item.name) + (item.members.length > 1 ? '<span class="sw-etf">합산</span>' : "") + "</div>" +
+            '<div class="sw-value"><b>' + formatEok(item.value) + "</b><span>" + formatPct(pct) + "</span></div>" +
           "</div>" +
           '<div class="sw-track"><i style="width:' + (item.value / max * 100).toFixed(1) +
             "%;background:" + col + '"></i></div>' +
-          '<div class="sw-sub"><span class="sw-bucket">' + item.bucket + "</span>" + pnlChip + "</div>" +
+          '<div class="sw-sub"><span class="sw-bucket">' + bucketLabel(item.bucket) + "</span>" + pnlChip + "</div>" +
         "</div>" +
       "</div>";
     }).join("");
     var restValue = rest.reduce(function (sum, item) { return sum + item.value; }, 0);
     var restRow = rest.length
       ? '<div class="sw-rest"><span>그 외 ' + rest.length + "종목</span><span><b>" +
-        formatWon(restValue) + "</b> · " + formatPct(restValue / out.total * 100) + "</span></div>"
+        formatEok(restValue) + "</b> · " + formatPct(restValue / out.total * 100) + "</span></div>"
       : "";
     return '<div class="sw-block">' +
-      '<div class="sw-head"><span>상위 10종목</span><span>같은 티커 합산 · 총 평가액 비중</span></div>' +
+      '<div class="sw-head"><span>상위 10종목</span><span>동일 종목·동일 지수 ETF 합산 · 순자산 비중</span></div>' +
       '<div class="sw-conc">상위 3종목 <b>' + formatPct(out.top3Pct) + "</b> · 최대 종목 <b>" +
-        formatPct(stocks[0].value / out.total * 100) + "</b></div>" +
+        formatPct(all[0].value / out.total * 100) + "</b></div>" +
       '<div class="sw-grid">' + rows + "</div>" + restRow +
     "</div>";
   }
@@ -769,31 +971,31 @@
   function renderExposureBlock(out) {
     if (!out.total) return '<div class="empty">분석할 자산이 없습니다</div>';
     var region =
-      '<div class="ex2-card is-static">' +
-        '<div class="ex2-k">지역 노출</div>' +
+      '<button type="button" class="ex2-card" data-drill="axis" data-axis="region">' +
+        '<div class="ex2-k">지역 노출<span>구성 ›</span></div>' +
         '<div class="ex2-region">' +
           '<div><span>국장</span><b>' + formatPct(out.regionKrPct) + "</b></div>" +
           '<div><span>미장</span><b>' + formatPct(out.regionUsPct) + "</b></div>" +
         "</div>" +
         '<div class="ex2-dual"><i style="width:' + out.regionKrPct +
           '%"></i><em style="width:' + out.regionUsPct + '%"></em></div>' +
-      "</div>";
-    var metric = function (label, pct, value, color, foot) {
-      return '<div class="ex2-card is-static">' +
-        '<div class="ex2-k">' + label + "</div>" +
+      "</button>";
+    var metric = function (label, pct, value, color, foot, axis) {
+      return '<button type="button" class="ex2-card" data-drill="axis" data-axis="' + axis + '">' +
+        '<div class="ex2-k">' + label + '<span>구성 ›</span></div>' +
         '<div class="ex2-v">' + formatPct(pct) + "</div>" +
-        '<div class="ex2-sub">' + formatWon(value) + " · 총 평가액 기준</div>" +
+        '<div class="ex2-sub">' + formatEok(value) + " · 총 평가액 기준</div>" +
         '<div class="ex2-track"><i style="width:' + Math.min(pct, 100) + "%;background:" + color + '"></i></div>' +
         (foot ? '<div class="ex2-foot">' + foot + "</div>" : "") +
-      "</div>";
+      "</button>";
     };
     return '<div class="ex2-block">' +
       '<div class="ex2-grid">' +
         region +
-        metric("AI 우산", out.aiPct, out.aiValue, "#6b5ce7", "반도체 포함 · 종목명·티커 추정") +
-        metric("반도체", out.semiPct, out.semiValue, "#0F8A92", "AI 우산에 이미 포함") +
+        metric("AI 우산", out.aiPct, out.aiValue, "#6b5ce7", "반도체 포함 · 종목명·티커 추정", "ai_umbrella") +
+        metric("반도체", out.semiPct, out.semiValue, "#0F8A92", "AI 우산에 이미 포함", "semi") +
       "</div>" +
-      '<div class="ex2-note">AI 우산과 반도체는 더하지 않습니다. 종목명·티커 기반 추정치입니다.</div>' +
+      '<div class="ex2-note">AI 우산과 반도체는 더하지 않습니다. 카드를 누르면 종목별 근거를 확인할 수 있습니다.</div>' +
     "</div>";
   }
 
@@ -825,15 +1027,40 @@
       "</div></details></div>";
   }
 
+  function bindAnalyzeEvents() {
+    var root = document.getElementById("analyzeRoot");
+    if (!root || root.dataset.bound === "1") return;
+    root.dataset.bound = "1";
+    root.addEventListener("click", function (event) {
+      var target = event.target.closest("[data-drill]");
+      if (!target) return;
+      var out = compute(state);
+      var drill = target.getAttribute("data-drill");
+      if (drill === "bucket") openVModal(bucketModalHTML(target.getAttribute("data-key"), out));
+      else if (drill === "axis") openVModal(axisModalHTML(target.getAttribute("data-axis"), out));
+    });
+    var modal = document.getElementById("vmodal");
+    if (modal) {
+      modal.addEventListener("click", function (event) {
+        if (event.target === modal) closeVModal();
+      });
+    }
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") closeVModal();
+    });
+  }
+
   function renderAnalyze() {
     var out = compute(state);
     document.getElementById("analyzeRoot").innerHTML =
       renderAnalyzeHome(out) +
-      foldCard("목표 배분 vs 현재", renderAllocationCompare(out), true) +
       renderCashMonitor(out) +
+      foldCard("포트폴리오 비중 — 4버킷 (큰그림)", renderPortfolioWeight(out), true) +
+      foldCard("목표 배분 vs 현재", renderAllocationCompare(out), true) +
       foldCard("종목 비중", renderStockWeights(out), true) +
       foldCard("익스포저 — 국장·미장 · AI 우산", renderExposureBlock(out), true) +
       renderBenchmarkBlock(out);
+    bindAnalyzeEvents();
   }
 
   function findHolding(id) {
@@ -978,6 +1205,7 @@
 
   renderSheet();
   setTab(currentTab);
+  bindAnalyzeEvents();
 
   window.__portfolioLens = {
     compute: compute,
