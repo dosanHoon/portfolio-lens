@@ -1,0 +1,22 @@
+{
+  "fx": 1350,
+  "cashKrw": 5000000,
+  "cashUsd": 2000,
+  "holdings": [
+    { "name": "삼성전자", "ticker": "005930", "shares": 50, "currency": "KRW", "price": 72000, "avgPrice": 65000 },
+    { "name": "SK하이닉스", "ticker": "000660", "shares": 5, "currency": "KRW", "price": 520000, "avgPrice": 480000 },
+    { "name": "KoAct AI인프라액티브", "ticker": "487130", "shares": 120, "currency": "KRW", "price": 29000, "avgPrice": 27000 },
+    { "name": "TIGER 미국S&P500", "ticker": "360750", "shares": 80, "currency": "KRW", "price": 26500, "avgPrice": 25000 },
+    { "name": "KODEX 미국나스닥100", "ticker": "379810", "shares": 60, "currency": "KRW", "price": 26000, "avgPrice": 24500 },
+    { "name": "엔비디아", "ticker": "NVDA", "shares": 12, "currency": "USD", "price": 190, "avgPrice": 165 },
+    { "name": "알파벳", "ticker": "GOOGL", "shares": 8, "currency": "USD", "price": 330, "avgPrice": 280 },
+    { "name": "SPY", "ticker": "SPY", "shares": 4, "currency": "USD", "price": 580, "avgPrice": 540 },
+    { "name": "SCHD", "ticker": "SCHD", "shares": 30, "currency": "USD", "price": 28, "avgPrice": 26 }
+  ],
+  "performance": {
+    "yearEndValue": 45000000,
+    "ytdNetFlow": 3000000,
+    "yearAgoValue": 38000000,
+    "yoyNetFlow": 8000000
+  }
+}
